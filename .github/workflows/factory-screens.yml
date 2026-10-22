@@ -1,0 +1,53 @@
+name: Factory screen check
+on:
+  workflow_dispatch:
+  # Installed by a reviewed PR before the GitHub App may dispatch checks.
+permissions:
+  contents: read
+concurrency:
+  group: app-screen-check-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  screens:
+    if: github.event.repository.private == true
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Enable KVM for this runner
+        run: |
+          test -c /dev/kvm
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+          # udev trigger is asynchronous; same bounded readiness wait as kvm-probe.yml.
+          for attempt in 1 2 3 4 5 6 7 8 9 10; do
+            if [ -r /dev/kvm ] && [ -w /dev/kvm ]; then break; fi
+            sleep 1
+          done
+          ls -l /dev/kvm
+          test -r /dev/kvm && test -w /dev/kvm
+      - name: Launch and check the already built APK
+        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
+        with:
+          api-level: 34
+          target: default
+          arch: x86_64
+          cores: 2
+          ram-size: 2048M
+          disable-animations: false
+          emulator-boot-timeout: 480
+          emulator-options: -no-window -no-audio -no-boot-anim -no-snapshot -gpu swiftshader_indirect -skin 720x1280 -dpi-device 320
+          script: python3 qa/run.py --bundle qa --output screen-results
+      - name: Keep report and screenshots, including failed checks
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: app-screen-check
+          path: screen-results/
+          if-no-files-found: error
+          retention-days: 1
