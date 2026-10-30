@@ -41,7 +41,7 @@ jobs:
           ram-size: 2048M
           disable-animations: false
           emulator-boot-timeout: 480
-          emulator-options: -no-window -no-audio -no-boot-anim -no-snapshot -gpu swiftshader_indirect -skin 720x1280 -dpi-device 320
+          emulator-options: -no-window -no-audio -no-boot-anim -no-snapshot -gpu swiftshader_indirect -skin 1080x2400 -dpi-device 480
           script: python3 qa/run.py --bundle qa --output screen-results
       - name: Keep report and screenshots, including failed checks
         if: always()
